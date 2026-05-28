@@ -10,7 +10,53 @@ interface BookResult {
   published_year: number | null;
 }
 
-/** HEAD-check Open Library cover CDN — returns URL only if the image exists */
+// ─── XML helpers (no dependency needed for BnF Dublin Core) ───────────────────
+
+function decodeXmlEntities(s: string): string {
+  return s
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => String.fromCharCode(parseInt(h, 16)));
+}
+
+/** First text content of a (possibly namespaced) XML tag */
+function xmlFirst(xml: string, localName: string): string | null {
+  const re = new RegExp(
+    `<(?:[\\w]+:)?${localName}(?:\\s[^>]*)?>([\\s\\S]*?)</(?:[\\w]+:)?${localName}>`,
+    "i"
+  );
+  const m = xml.match(re);
+  if (!m) return null;
+  const val = decodeXmlEntities(
+    m[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()
+  );
+  return val || null;
+}
+
+/** All text contents of a (possibly namespaced) XML tag */
+function xmlAll(xml: string, localName: string): string[] {
+  const re = new RegExp(
+    `<(?:[\\w]+:)?${localName}(?:\\s[^>]*)?>([\\s\\S]*?)</(?:[\\w]+:)?${localName}>`,
+    "gi"
+  );
+  const results: string[] = [];
+  let m;
+  while ((m = re.exec(xml)) !== null) {
+    const val = decodeXmlEntities(
+      m[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()
+    );
+    if (val) results.push(val);
+  }
+  return results;
+}
+
+// ─── Cover helpers ────────────────────────────────────────────────────────────
+
+/** HEAD-check Open Library cover CDN — URL only if the image exists */
 async function getOpenLibraryCover(isbn: string): Promise<string | null> {
   try {
     const url = `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg`;
@@ -20,6 +66,19 @@ async function getOpenLibraryCover(isbn: string): Promise<string | null> {
     return null;
   }
 }
+
+/** HEAD-check BnF cover CDN given an ARK identifier */
+async function getBnFCover(arkId: string): Promise<string | null> {
+  try {
+    const url = `https://catalogue.bnf.fr/couverture?appName=NE&idArk=${encodeURIComponent(arkId)}&couverture=1`;
+    const res = await fetch(url, { method: "HEAD" });
+    return res.ok ? url : null;
+  } catch {
+    return null;
+  }
+}
+
+// ─── Source fetchers ──────────────────────────────────────────────────────────
 
 async function fromGoogleBooks(isbn: string): Promise<BookResult | null> {
   try {
@@ -70,7 +129,7 @@ async function fromOpenLibrary(isbn: string): Promise<BookResult | null> {
       entry.cover?.large ?? entry.cover?.medium ?? entry.cover?.small
     );
 
-    // `notes` is rarely a synopsis — look up the Work for a real description
+    // `notes` field is rarely a synopsis — look up the linked Work for a real description
     let description: string | null =
       typeof entry.notes === "string"
         ? entry.notes
@@ -90,7 +149,7 @@ async function fromOpenLibrary(isbn: string): Promise<BookResult | null> {
               : (work.description?.value ?? null);
         }
       } catch {
-        /* ignore — description stays null */
+        /* ignore */
       }
     }
 
@@ -101,7 +160,8 @@ async function fromOpenLibrary(isbn: string): Promise<BookResult | null> {
     return {
       isbn,
       title: entry.title ?? "Titre inconnu",
-      author: entry.authors?.map((a: { name: string }) => a.name).join(", ") ?? null,
+      author:
+        entry.authors?.map((a: { name: string }) => a.name).join(", ") ?? null,
       cover_url,
       description,
       published_year: isNaN(publishYear ?? NaN) ? null : publishYear,
@@ -111,39 +171,98 @@ async function fromOpenLibrary(isbn: string): Promise<BookResult | null> {
   }
 }
 
+async function fromBnF(isbn: string): Promise<BookResult | null> {
+  try {
+    const query = encodeURIComponent(`bib.isbn adj "${isbn}"`);
+    const res = await fetch(
+      `https://catalogue.bnf.fr/api/SRU?version=1.2&operation=searchRetrieve&query=${query}&recordSchema=dublincore&maximumRecords=1`,
+      { next: { revalidate: 86400 } }
+    );
+    if (!res.ok) return null;
+    const xml = await res.text();
+
+    if (xmlFirst(xml, "numberOfRecords") === "0") return null;
+
+    // Title — BnF sometimes appends "[Texte imprimé]" etc.
+    const rawTitle = xmlFirst(xml, "title");
+    if (!rawTitle) return null;
+    const title = rawTitle.replace(/\s*\[[^\]]*\]\s*/g, "").trim() || rawTitle;
+
+    // Authors — BnF format: "Nom, Prénom (1961-.... ; Auteur du texte)"
+    const authors = xmlAll(xml, "creator")
+      .map((c) => c.replace(/\s*\([^)]*\)/g, "").trim())
+      .filter(Boolean);
+    const author = authors.length > 0 ? authors.join(", ") : null;
+
+    // Description — may start with "Résumé : "
+    const rawDesc = xmlFirst(xml, "description");
+    const description = rawDesc
+      ? rawDesc.replace(/^R[eé]sum[eé]\s*:\s*/i, "").trim()
+      : null;
+
+    // Year
+    const dateStr = xmlFirst(xml, "date");
+    const published_year = dateStr
+      ? parseInt(dateStr.replace(/\D/g, "").slice(0, 4))
+      : null;
+
+    // Cover via ARK identifier
+    const identifiers = xmlAll(xml, "identifier");
+    const arkId = identifiers.find((id) => id.startsWith("ark:/"));
+    const cover_url = arkId ? await getBnFCover(arkId) : null;
+
+    return {
+      isbn,
+      title,
+      author,
+      cover_url,
+      description,
+      published_year: isNaN(published_year ?? NaN) ? null : published_year,
+    };
+  } catch {
+    return null;
+  }
+}
+
+// ─── Route handler ────────────────────────────────────────────────────────────
+
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ isbn: string }> }
 ) {
   const { isbn } = await params;
 
-  // Fetch both sources in parallel — maximises data coverage
-  const [gbBook, olBook] = await Promise.all([
+  // All three sources fetched in parallel
+  const [gbBook, olBook, bnfBook] = await Promise.all([
     fromGoogleBooks(isbn),
     fromOpenLibrary(isbn),
+    fromBnF(isbn),
   ]);
 
-  if (!gbBook && !olBook) {
+  if (!gbBook && !olBook && !bnfBook) {
     return NextResponse.json({ error: "Book not found" }, { status: 404 });
   }
 
-  // Prefer Google Books for title / author / year; fill gaps from Open Library
-  const primary = gbBook ?? olBook!;
-  const fallback = gbBook ? olBook : null;
-
-  // Cover: GB first → OL data API → direct OL cover CDN as last resort
+  // Cover: GB → OL data API → OL CDN HEAD → BnF (already HEAD-checked inside fromBnF)
   const cover_url =
-    primary.cover_url ??
-    fallback?.cover_url ??
-    (await getOpenLibraryCover(isbn));
+    gbBook?.cover_url ??
+    olBook?.cover_url ??
+    (await getOpenLibraryCover(isbn)) ??
+    bnfBook?.cover_url ??
+    null;
 
+  // Each field: first non-null in order GB > OL > BnF
   const book: BookResult = {
-    isbn: primary.isbn,
-    title: primary.title,
-    author: primary.author ?? fallback?.author ?? null,
+    isbn,
+    title:
+      gbBook?.title ?? olBook?.title ?? bnfBook?.title ?? "Titre inconnu",
+    author:
+      gbBook?.author ?? olBook?.author ?? bnfBook?.author ?? null,
     cover_url,
-    description: primary.description ?? fallback?.description ?? null,
-    published_year: primary.published_year ?? fallback?.published_year ?? null,
+    description:
+      gbBook?.description ?? olBook?.description ?? bnfBook?.description ?? null,
+    published_year:
+      gbBook?.published_year ?? olBook?.published_year ?? bnfBook?.published_year ?? null,
   };
 
   return NextResponse.json(book);
