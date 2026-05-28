@@ -9,26 +9,31 @@ type Mode = "signin" | "signup";
 function BookLogo() {
   return (
     <div
-      className="w-20 h-20 rounded-3xl flex items-center justify-center relative"
-      style={{
-        background: "linear-gradient(135deg, #d97706 0%, #92400e 100%)",
-        boxShadow: "0 8px 32px rgba(180,83,9,0.35)",
-      }}
+      className="w-20 h-20 rounded-3xl relative overflow-hidden"
+      style={{ background: "#1c1917", boxShadow: "0 8px 32px rgba(0,0,0,0.45)" }}
     >
-      <div
-        className="absolute inset-0 rounded-3xl"
-        style={{
-          background:
-            "linear-gradient(135deg, rgba(255,255,255,0.18) 0%, transparent 55%)",
-        }}
-      />
-      <svg viewBox="0 0 512 512" className="w-10 h-10 relative z-10">
-        <path
-          d="M256 130 C215 118 145 124 110 142 L110 370 C145 352 215 346 256 358 C297 346 367 352 402 370 L402 142 C367 124 297 118 256 130Z"
-          fill="white"
-          opacity="0.95"
-        />
-        <rect x="248" y="130" width="16" height="228" rx="8" fill="white" opacity="0.35" />
+      <svg viewBox="0 0 512 512" className="absolute inset-0 w-full h-full">
+        {/* Left page */}
+        <polygon points="108,158 256,144 256,358 108,372" fill="#fefce8" />
+        <polygon points="232,146 256,144 256,358 232,356" fill="#1c1917" fillOpacity="0.07" />
+        {/* Right page */}
+        <polygon points="404,158 256,144 256,358 404,372" fill="#fffbeb" />
+        <polygon points="280,146 256,144 256,358 280,356" fill="#1c1917" fillOpacity="0.05" />
+        {/* Lines left */}
+        <line x1="132" y1="216" x2="238" y2="213" stroke="#44403c" strokeWidth="6" strokeLinecap="round" />
+        <line x1="132" y1="238" x2="238" y2="235" stroke="#44403c" strokeWidth="6" strokeLinecap="round" />
+        <line x1="132" y1="260" x2="238" y2="257" stroke="#44403c" strokeWidth="6" strokeLinecap="round" />
+        <line x1="132" y1="282" x2="200" y2="280" stroke="#44403c" strokeWidth="6" strokeLinecap="round" />
+        {/* Lines right */}
+        <line x1="274" y1="213" x2="380" y2="216" stroke="#44403c" strokeWidth="6" strokeLinecap="round" />
+        <line x1="274" y1="235" x2="380" y2="238" stroke="#44403c" strokeWidth="6" strokeLinecap="round" />
+        <line x1="274" y1="257" x2="380" y2="260" stroke="#44403c" strokeWidth="6" strokeLinecap="round" />
+        <line x1="274" y1="280" x2="340" y2="282" stroke="#44403c" strokeWidth="6" strokeLinecap="round" />
+        {/* Amber spine */}
+        <rect x="251" y="144" width="10" height="214" rx="5" fill="#f59e0b" />
+        {/* Amber bookmark */}
+        <path d="M356 84 L356 200 L336 184 L316 200 L316 84Z" fill="#f59e0b" />
+        <path d="M316 84 L316 200 L336 184 L356 200 L356 84Z" fill="#b45309" fillOpacity="0.22" />
       </svg>
     </div>
   );
