@@ -10,14 +10,11 @@ interface BookResult {
   published_year: number | null;
 }
 
-/** Check Open Library cover existence via HEAD, returns URL if found */
-async function openLibraryCover(isbn: string): Promise<string | null> {
+/** HEAD-check Open Library cover CDN — returns URL only if the image exists */
+async function getOpenLibraryCover(isbn: string): Promise<string | null> {
   try {
     const url = `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg`;
-    const res = await fetch(`${url}?default=false`, {
-      method: "HEAD",
-      next: { revalidate: 86400 },
-    });
+    const res = await fetch(`${url}?default=false`, { method: "HEAD" });
     return res.ok ? url : null;
   } catch {
     return null;
@@ -37,14 +34,11 @@ async function fromGoogleBooks(isbn: string): Promise<BookResult | null> {
     if (!data.items?.length) return null;
 
     const { volumeInfo } = data.items[0];
-
-    // Prefer highest-res Google Books image; fall back to Open Library if none
-    const googleCover = enhanceCoverUrl(
+    const cover_url = enhanceCoverUrl(
       volumeInfo.imageLinks?.large ??
-      volumeInfo.imageLinks?.medium ??
-      volumeInfo.imageLinks?.thumbnail
+        volumeInfo.imageLinks?.medium ??
+        volumeInfo.imageLinks?.thumbnail
     );
-    const cover_url = googleCover ?? (await openLibraryCover(isbn));
 
     return {
       isbn,
@@ -72,9 +66,33 @@ async function fromOpenLibrary(isbn: string): Promise<BookResult | null> {
     const entry = data[`ISBN:${isbn}`];
     if (!entry) return null;
 
-    const coverUrl =
-      enhanceCoverUrl(entry.cover?.large ?? entry.cover?.medium ?? entry.cover?.small) ??
-      (await openLibraryCover(isbn));
+    const cover_url = enhanceCoverUrl(
+      entry.cover?.large ?? entry.cover?.medium ?? entry.cover?.small
+    );
+
+    // `notes` is rarely a synopsis — look up the Work for a real description
+    let description: string | null =
+      typeof entry.notes === "string"
+        ? entry.notes
+        : (entry.notes?.value ?? null);
+
+    if (!description && entry.works?.[0]?.key) {
+      try {
+        const workRes = await fetch(
+          `https://openlibrary.org${entry.works[0].key}.json`,
+          { next: { revalidate: 86400 } }
+        );
+        if (workRes.ok) {
+          const work = await workRes.json();
+          description =
+            typeof work.description === "string"
+              ? work.description
+              : (work.description?.value ?? null);
+        }
+      } catch {
+        /* ignore — description stays null */
+      }
+    }
 
     const publishYear = entry.publish_date
       ? parseInt(entry.publish_date.replace(/\D/g, "").slice(0, 4))
@@ -84,8 +102,8 @@ async function fromOpenLibrary(isbn: string): Promise<BookResult | null> {
       isbn,
       title: entry.title ?? "Titre inconnu",
       author: entry.authors?.map((a: { name: string }) => a.name).join(", ") ?? null,
-      cover_url: coverUrl,
-      description: entry.notes ?? null,
+      cover_url,
+      description,
       published_year: isNaN(publishYear ?? NaN) ? null : publishYear,
     };
   } catch {
@@ -99,12 +117,34 @@ export async function GET(
 ) {
   const { isbn } = await params;
 
-  // Try Google Books first, fallback to Open Library
-  const book = (await fromGoogleBooks(isbn)) ?? (await fromOpenLibrary(isbn));
+  // Fetch both sources in parallel — maximises data coverage
+  const [gbBook, olBook] = await Promise.all([
+    fromGoogleBooks(isbn),
+    fromOpenLibrary(isbn),
+  ]);
 
-  if (!book) {
+  if (!gbBook && !olBook) {
     return NextResponse.json({ error: "Book not found" }, { status: 404 });
   }
+
+  // Prefer Google Books for title / author / year; fill gaps from Open Library
+  const primary = gbBook ?? olBook!;
+  const fallback = gbBook ? olBook : null;
+
+  // Cover: GB first → OL data API → direct OL cover CDN as last resort
+  const cover_url =
+    primary.cover_url ??
+    fallback?.cover_url ??
+    (await getOpenLibraryCover(isbn));
+
+  const book: BookResult = {
+    isbn: primary.isbn,
+    title: primary.title,
+    author: primary.author ?? fallback?.author ?? null,
+    cover_url,
+    description: primary.description ?? fallback?.description ?? null,
+    published_year: primary.published_year ?? fallback?.published_year ?? null,
+  };
 
   return NextResponse.json(book);
 }
