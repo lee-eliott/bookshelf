@@ -2,9 +2,9 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
-  const response = NextResponse.next({
-    request: { headers: request.headers },
-  });
+  // IMPORTANT : supabaseResponse doit être recréé dans setAll
+  // pour que les cookies de session soient correctement propagés
+  let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -15,20 +15,24 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
+          // Met à jour request ET recrée supabaseResponse avec les nouveaux cookies
           cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
+            request.cookies.set(name, value, options)
+          );
+          supabaseResponse = NextResponse.next({ request });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
           );
         },
       },
     }
   );
 
-  // Rafraîchit la session si elle existe (important pour les tokens expirés)
+  // NE PAS mettre de code entre createServerClient et getUser()
   const { data: { user } } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
 
-  // Routes publiques — toujours accessibles
   const isPublic =
     pathname.startsWith("/login") ||
     pathname.startsWith("/auth") ||
@@ -37,21 +41,20 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/favicon") ||
     pathname.startsWith("/icon") ||
     pathname.startsWith("/manifest") ||
-    pathname.startsWith("/sw.js");
+    pathname === "/sw.js";
 
   if (!user && !isPublic) {
-    const loginUrl = new URL("/login", request.url);
+    const loginUrl = request.nextUrl.clone();
+    loginUrl.pathname = "/login";
     return NextResponse.redirect(loginUrl);
   }
 
-  return response;
+  // IMPORTANT : toujours retourner supabaseResponse pour préserver les cookies
+  return supabaseResponse;
 }
 
 export const config = {
   matcher: [
-    /*
-     * Applique le middleware sur toutes les routes sauf les assets statiques Next.js
-     */
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
