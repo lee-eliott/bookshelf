@@ -3,6 +3,8 @@ import { ImageResponse } from "next/og";
 export const size = { width: 180, height: 180 };
 export const contentType = "image/png";
 
+// Satori (ImageResponse engine) has limited CSS support — no clip-path.
+// The book is rebuilt with plain divs + CSS border-triangle for the bookmark notch.
 export default function AppleIcon() {
   return new ImageResponse(
     (
@@ -17,74 +19,76 @@ export default function AppleIcon() {
           overflow: "hidden",
         }}
       >
-        {/* Left page */}
+        {/* ── Left page ── */}
         <div
           style={{
             position: "absolute",
-            inset: 0,
+            left: 26,
+            top: 42,
+            width: 59,
+            height: 96,
             background: "#fefce8",
-            clipPath: "polygon(25px 48px, 90px 43px, 90px 140px, 25px 145px)",
           }}
         />
 
-        {/* Right page (slightly brighter) */}
+        {/* ── Right page ── */}
         <div
           style={{
             position: "absolute",
-            inset: 0,
+            left: 95,
+            top: 42,
+            width: 59,
+            height: 96,
             background: "#fffbeb",
-            clipPath: "polygon(155px 48px, 90px 43px, 90px 140px, 155px 145px)",
           }}
         />
 
-        {/* Left page lines */}
-        <div style={{ position: "absolute", left: 34, top: 76,  width: 48, height: 2.5, background: "#44403c", borderRadius: 2, opacity: 0.18 }} />
-        <div style={{ position: "absolute", left: 34, top: 90,  width: 48, height: 2.5, background: "#44403c", borderRadius: 2, opacity: 0.18 }} />
-        <div style={{ position: "absolute", left: 34, top: 104, width: 48, height: 2.5, background: "#44403c", borderRadius: 2, opacity: 0.18 }} />
-        <div style={{ position: "absolute", left: 34, top: 118, width: 32, height: 2.5, background: "#44403c", borderRadius: 2, opacity: 0.18 }} />
+        {/* ── Left page lines ── */}
+        <div style={{ position: "absolute", left: 34, top: 68,  width: 44, height: 2, background: "#44403c", opacity: 0.18 }} />
+        <div style={{ position: "absolute", left: 34, top: 80,  width: 44, height: 2, background: "#44403c", opacity: 0.18 }} />
+        <div style={{ position: "absolute", left: 34, top: 92,  width: 44, height: 2, background: "#44403c", opacity: 0.18 }} />
+        <div style={{ position: "absolute", left: 34, top: 104, width: 30, height: 2, background: "#44403c", opacity: 0.18 }} />
 
-        {/* Right page lines */}
-        <div style={{ position: "absolute", left: 98, top: 76,  width: 48, height: 2.5, background: "#44403c", borderRadius: 2, opacity: 0.14 }} />
-        <div style={{ position: "absolute", left: 98, top: 90,  width: 48, height: 2.5, background: "#44403c", borderRadius: 2, opacity: 0.14 }} />
-        <div style={{ position: "absolute", left: 98, top: 104, width: 48, height: 2.5, background: "#44403c", borderRadius: 2, opacity: 0.14 }} />
-        <div style={{ position: "absolute", left: 98, top: 118, width: 32, height: 2.5, background: "#44403c", borderRadius: 2, opacity: 0.14 }} />
+        {/* ── Right page lines ── */}
+        <div style={{ position: "absolute", left: 103, top: 68,  width: 44, height: 2, background: "#44403c", opacity: 0.14 }} />
+        <div style={{ position: "absolute", left: 103, top: 80,  width: 44, height: 2, background: "#44403c", opacity: 0.14 }} />
+        <div style={{ position: "absolute", left: 103, top: 92,  width: 44, height: 2, background: "#44403c", opacity: 0.14 }} />
+        <div style={{ position: "absolute", left: 103, top: 104, width: 30, height: 2, background: "#44403c", opacity: 0.14 }} />
 
-        {/* Amber spine */}
+        {/* ── Amber spine ── */}
         <div
           style={{
             position: "absolute",
-            left: 87,
-            top: 43,
-            width: 6,
-            height: 97,
-            borderRadius: 3,
+            left: 85,
+            top: 42,
+            width: 10,
+            height: 96,
             background: "#f59e0b",
           }}
         />
 
-        {/* Amber bookmark */}
+        {/* ── Amber bookmark (rectangle + CSS triangle notch) ── */}
         <div
           style={{
             position: "absolute",
-            left: 117,
+            left: 118,
             top: 8,
             width: 18,
-            height: 54,
+            height: 50,
             background: "#f59e0b",
-            clipPath: "polygon(0% 0%, 100% 0%, 100% 100%, 50% 86%, 0% 100%)",
           }}
         />
-        {/* Bookmark shadow half */}
+        {/* Notch: dark upward triangle overlapping the bottom of the bookmark */}
         <div
           style={{
             position: "absolute",
-            left: 117,
-            top: 8,
-            width: 18,
-            height: 54,
-            background: "#b45309",
-            opacity: 0.22,
-            clipPath: "polygon(0% 0%, 50% 0%, 50% 86%, 0% 100%)",
+            left: 118,
+            top: 50,
+            width: 0,
+            height: 0,
+            borderLeft: "9px solid transparent",
+            borderRight: "9px solid transparent",
+            borderBottom: "8px solid #1c1917",
           }}
         />
       </div>
