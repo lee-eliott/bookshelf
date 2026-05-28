@@ -5,12 +5,10 @@
 
   <!-- Left page -->
   <polygon points="108,158 256,144 256,358 108,372" fill="#fefce8"/>
-  <!-- Left page inner shadow at spine -->
   <polygon points="232,146 256,144 256,358 232,356" fill="#1c1917" fill-opacity="0.07"/>
 
   <!-- Right page -->
   <polygon points="404,158 256,144 256,358 404,372" fill="#fffbeb"/>
-  <!-- Right page inner shadow at spine -->
   <polygon points="280,146 256,144 256,358 280,356" fill="#1c1917" fill-opacity="0.05"/>
 
   <!-- Left page lines -->

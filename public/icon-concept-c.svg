@@ -1,0 +1,25 @@
+<svg viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+
+  <!-- Background — warm cream (brand color) -->
+  <rect width="512" height="512" rx="108" fill="#fafaf8"/>
+
+  <!-- Book body (face-on) — stone dark -->
+  <rect x="116" y="88" width="280" height="356" rx="14" fill="#1c1917"/>
+
+  <!-- Book spine (left edge) -->
+  <rect x="116" y="88" width="30" height="356" rx="14" fill="#0c0a09"/>
+  <rect x="140" y="88" width="6" height="356" fill="#0c0a09" fill-opacity="0.4"/>
+
+  <!-- Pages right edge (cream layered) -->
+  <rect x="390" y="94" width="6" height="344" rx="3" fill="#e7e5e4"/>
+  <rect x="394" y="98" width="4" height="336" rx="2" fill="#d6d3d1"/>
+
+  <!-- Amber bookmark ribbon -->
+  <path d="M 296 88 L 296 242 L 270 222 L 244 242 L 244 88 Z" fill="#f59e0b"/>
+  <!-- Bookmark shine -->
+  <path d="M 244 88 L 265 88 L 265 242 L 244 242 Z" fill="white" fill-opacity="0.08"/>
+
+  <!-- Title lines on cover -->
+  <rect x="156" y="318" width="196" height="13" rx="6.5" fill="white" fill-opacity="0.18"/>
+  <rect x="156" y="342" width="136" height="9" rx="4.5" fill="white" fill-opacity="0.10"/>
+</svg>

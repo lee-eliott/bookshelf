@@ -28,7 +28,8 @@
   <!-- Amber spine -->
   <rect x="251" y="144" width="10" height="214" rx="5" fill="#f59e0b"/>
 
-  <!-- Amber bookmark -->
+  <!-- Amber bookmark (top right) -->
   <path d="M 356 84 L 356 200 L 336 184 L 316 200 L 316 84 Z" fill="#f59e0b"/>
+  <!-- Bookmark notch shadow -->
   <path d="M 316 84 L 316 200 L 336 184 L 356 200 L 356 84 Z" fill="#b45309" fill-opacity="0.22"/>
 </svg>
