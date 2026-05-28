@@ -16,8 +16,9 @@ export async function middleware(request: NextRequest) {
         },
         setAll(cookiesToSet) {
           // Met à jour request ET recrée supabaseResponse avec les nouveaux cookies
-          cookiesToSet.forEach(({ name, value, options }) =>
-            request.cookies.set(name, value, options)
+          // request.cookies.set n'accepte pas les options — seulement (name, value)
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value)
           );
           supabaseResponse = NextResponse.next({ request });
           cookiesToSet.forEach(({ name, value, options }) =>
