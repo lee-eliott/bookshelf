@@ -194,11 +194,17 @@ async function fromBnF(isbn: string): Promise<BookResult | null> {
       .filter(Boolean);
     const author = authors.length > 0 ? authors.join(", ") : null;
 
-    // Description — may start with "Résumé : "
-    const rawDesc = xmlFirst(xml, "description");
-    const description = rawDesc
-      ? rawDesc.replace(/^R[eé]sum[eé]\s*:\s*/i, "").trim()
-      : null;
+    // BnF dc:description has multiple entries: synopsis, collection name, EAN, physical desc…
+    // Keep only the one that looks like a real synopsis: long enough, no metadata patterns.
+    const description =
+      xmlAll(xml, "description")
+        .map((d) => d.replace(/^R[eé]sum[eé]\s*[:\-]\s*/i, "").trim())
+        .filter(
+          (d) =>
+            d.length >= 80 &&
+            !/^(collection\b|ean\b|\d{8,}|code.{0,10}barres|in-\d|broché|relié|format\b)/i.test(d)
+        )
+        .sort((a, b) => b.length - a.length)[0] ?? null;
 
     // Year
     const dateStr = xmlFirst(xml, "date");
