@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { enhanceCoverUrl } from "@/lib/utils";
 
 interface BookResult {
   isbn: string;
@@ -7,6 +8,20 @@ interface BookResult {
   cover_url: string | null;
   description: string | null;
   published_year: number | null;
+}
+
+/** Check Open Library cover existence via HEAD, returns URL if found */
+async function openLibraryCover(isbn: string): Promise<string | null> {
+  try {
+    const url = `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg`;
+    const res = await fetch(`${url}?default=false`, {
+      method: "HEAD",
+      next: { revalidate: 86400 },
+    });
+    return res.ok ? url : null;
+  } catch {
+    return null;
+  }
 }
 
 async function fromGoogleBooks(isbn: string): Promise<BookResult | null> {
@@ -22,11 +37,20 @@ async function fromGoogleBooks(isbn: string): Promise<BookResult | null> {
     if (!data.items?.length) return null;
 
     const { volumeInfo } = data.items[0];
+
+    // Prefer highest-res Google Books image; fall back to Open Library if none
+    const googleCover = enhanceCoverUrl(
+      volumeInfo.imageLinks?.large ??
+      volumeInfo.imageLinks?.medium ??
+      volumeInfo.imageLinks?.thumbnail
+    );
+    const cover_url = googleCover ?? (await openLibraryCover(isbn));
+
     return {
       isbn,
       title: volumeInfo.title ?? "Titre inconnu",
       author: volumeInfo.authors?.join(", ") ?? null,
-      cover_url: volumeInfo.imageLinks?.thumbnail?.replace("http:", "https:") ?? null,
+      cover_url,
       description: volumeInfo.description ?? null,
       published_year: volumeInfo.publishedDate
         ? parseInt(volumeInfo.publishedDate.split("-")[0])
@@ -48,8 +72,9 @@ async function fromOpenLibrary(isbn: string): Promise<BookResult | null> {
     const entry = data[`ISBN:${isbn}`];
     if (!entry) return null;
 
-    const coverId = entry.cover?.large ?? entry.cover?.medium ?? entry.cover?.small ?? null;
-    const coverUrl = coverId ?? null;
+    const coverUrl =
+      enhanceCoverUrl(entry.cover?.large ?? entry.cover?.medium ?? entry.cover?.small) ??
+      (await openLibraryCover(isbn));
 
     const publishYear = entry.publish_date
       ? parseInt(entry.publish_date.replace(/\D/g, "").slice(0, 4))
