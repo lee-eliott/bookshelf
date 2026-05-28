@@ -93,18 +93,47 @@ async function fromGoogleBooks(isbn: string): Promise<BookResult | null> {
     if (!data.items?.length) return null;
 
     const { volumeInfo } = data.items[0];
-    const cover_url = enhanceCoverUrl(
+    let cover_url = enhanceCoverUrl(
       volumeInfo.imageLinks?.large ??
         volumeInfo.imageLinks?.medium ??
         volumeInfo.imageLinks?.thumbnail
     );
+    let description: string | null = volumeInfo.description ?? null;
+
+    // The ISBN-specific edition may have sparse data (e.g. pocket reprint).
+    // If cover or description is missing, search by title+author to find a
+    // richer edition and borrow its assets.
+    if ((!cover_url || !description) && volumeInfo.title) {
+      try {
+        const parts = [`intitle:${volumeInfo.title}`];
+        if (volumeInfo.authors?.[0]) parts.push(`inauthor:${volumeInfo.authors[0]}`);
+        const enrichRes = await fetch(
+          `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(parts.join(" "))}&maxResults=5${keyParam}`,
+          { next: { revalidate: 86400 } }
+        );
+        if (enrichRes.ok) {
+          const enrichData = await enrichRes.json();
+          for (const item of enrichData.items ?? []) {
+            const info = item.volumeInfo;
+            if (!cover_url) {
+              const candidate = enhanceCoverUrl(
+                info.imageLinks?.large ?? info.imageLinks?.medium ?? info.imageLinks?.thumbnail
+              );
+              if (candidate) cover_url = candidate;
+            }
+            if (!description && info.description) description = info.description;
+            if (cover_url && description) break;
+          }
+        }
+      } catch { /* enrichment is best-effort */ }
+    }
 
     return {
       isbn,
       title: volumeInfo.title ?? "Titre inconnu",
       author: volumeInfo.authors?.join(", ") ?? null,
       cover_url,
-      description: volumeInfo.description ?? null,
+      description,
       published_year: volumeInfo.publishedDate
         ? parseInt(volumeInfo.publishedDate.split("-")[0])
         : null,
