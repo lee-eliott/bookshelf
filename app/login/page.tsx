@@ -70,8 +70,7 @@ export default function LoginPage() {
             : "Erreur lors de la création du compte."
         );
       } else if (data.session) {
-        router.push("/");
-        router.refresh();
+        window.location.href = "/";
       } else {
         setConfirmationSent(true);
       }
@@ -80,8 +79,8 @@ export default function LoginPage() {
       if (error) {
         setError("Email ou mot de passe incorrect.");
       } else {
-        router.push("/");
-        router.refresh();
+        // Full reload so the server sees the new auth cookie immediately
+        window.location.href = "/";
       }
     }
 

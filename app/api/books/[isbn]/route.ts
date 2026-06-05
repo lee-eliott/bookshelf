@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { enhanceCoverUrl } from "@/lib/utils";
+import { enhanceCoverUrl, stripHtml } from "@/lib/utils";
 
 interface BookResult {
   isbn: string;
@@ -294,8 +294,9 @@ export async function GET(
     author:
       gbBook?.author ?? olBook?.author ?? bnfBook?.author ?? null,
     cover_url,
-    description:
-      gbBook?.description ?? olBook?.description ?? bnfBook?.description ?? null,
+    description: stripHtml(
+      gbBook?.description ?? olBook?.description ?? bnfBook?.description
+    ),
     published_year:
       gbBook?.published_year ?? olBook?.published_year ?? bnfBook?.published_year ?? null,
   };

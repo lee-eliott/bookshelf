@@ -345,7 +345,7 @@ export default function BookPreviewPage() {
             <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-3">
               Résumé
             </p>
-            <p className="text-sm text-stone-600 leading-relaxed">
+            <p className="text-sm text-stone-600 leading-relaxed whitespace-pre-wrap">
               {v.description}
             </p>
           </div>
