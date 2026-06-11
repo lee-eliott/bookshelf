@@ -133,7 +133,8 @@ export default function WishlistPage() {
           {items.map((item, i) => (
             <div
               key={item.id}
-              className="bg-white rounded-2xl p-3.5 border border-stone-100/80 flex gap-3.5 animate-fade-up"
+              onClick={() => router.push(`/wishlist/${item.id}`)}
+              className="bg-white rounded-2xl p-3.5 border border-stone-100/80 flex gap-3.5 animate-fade-up cursor-pointer hover:bg-stone-50/80 hover:shadow-[0_4px_20px_rgba(0,0,0,0.09)] hover:-translate-y-px active:scale-[0.99] transition-all duration-150"
               style={{
                 animationDelay: `${i * 45}ms`,
                 boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
@@ -173,7 +174,7 @@ export default function WishlistPage() {
                 {item.published_year && (
                   <p className="text-stone-300 text-[11px]">{item.published_year}</p>
                 )}
-                <div className="flex gap-1.5 mt-2.5">
+                <div className="flex gap-1.5 mt-2.5" onClick={(e) => e.stopPropagation()}>
                   <button
                     onClick={() => moveToLibrary(item)}
                     className="flex-1 bg-amber-700 text-white py-1.5 rounded-lg text-[11px] font-bold active:scale-95 transition-transform"

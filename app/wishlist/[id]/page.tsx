@@ -5,51 +5,64 @@ import { useParams } from "next/navigation";
 import { useTransitionRouter } from "next-view-transitions";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
-import StarRating from "@/components/StarRating";
 import { enhanceCoverUrl, stripHtml } from "@/lib/utils";
-import type { Book } from "@/lib/types";
+import type { WishlistItem } from "@/lib/types";
 
-export default function BookPage() {
+export default function WishlistBookPage() {
   const { id } = useParams<{ id: string }>();
   const router = useTransitionRouter();
-  const [book, setBook] = useState<Book | null>(null);
+  const [item, setItem] = useState<WishlistItem | null>(null);
   const [loading, setLoading] = useState(true);
+  const [moving, setMoving] = useState(false);
+  const [removing, setRemoving] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
     supabase
-      .from("books")
+      .from("wishlist")
       .select("*")
       .eq("id", id)
       .single()
       .then(({ data }) => {
-        setBook(data);
+        setItem(data);
         setLoading(false);
       });
   }, [id]);
 
-  const updateRating = async (rating: number) => {
-    if (!book) return;
-    // rating = 0 means "remove rating"
-    const newRating = rating === 0 ? null : rating;
+  const moveToLibrary = async () => {
+    if (!item) return;
+    setMoving(true);
     const supabase = createClient();
-    await supabase.from("books").update({ rating: newRating }).eq("id", id);
-    setBook((b) => (b ? { ...b, rating: newRating } : b));
-  };
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { router.push("/login"); return; }
 
-  const deleteBook = async () => {
-    const supabase = createClient();
-    await supabase.from("books").delete().eq("id", id);
+    await supabase.from("books").insert({
+      isbn: item.isbn,
+      title: item.title,
+      author: item.author,
+      cover_url: item.cover_url,
+      description: item.description,
+      published_year: item.published_year,
+      status: "owned",
+      user_id: user.id,
+    });
+    await supabase.from("wishlist").delete().eq("id", id);
     router.push("/");
   };
 
-  const coverUrl = enhanceCoverUrl(book?.cover_url);
+  const remove = async () => {
+    setRemoving(true);
+    const supabase = createClient();
+    await supabase.from("wishlist").delete().eq("id", id);
+    router.back();
+  };
+
+  const coverUrl = enhanceCoverUrl(item?.cover_url);
 
   if (loading) {
     return (
       <div className="max-w-lg mx-auto">
-        {/* Hero skeleton — viewTransitionName on the book-shaped shimmer so the morph targets the right element */}
         <div className="relative w-full h-72 bg-stone-900 flex items-center justify-center">
           <div
             className="shimmer rounded-lg"
@@ -68,24 +81,26 @@ export default function BookPage() {
     );
   }
 
-  if (!book) {
+  if (!item) {
     return (
       <div className="flex flex-col items-center pt-24 gap-4 animate-fade-in">
         <p className="text-stone-500 font-medium">Livre introuvable</p>
         <button
-          onClick={() => router.push("/")}
+          onClick={() => router.push("/wishlist")}
           className="text-amber-700 font-semibold text-sm underline underline-offset-2"
         >
-          Retour à la bibliothèque
+          Retour à la wishlist
         </button>
       </div>
     );
   }
 
+  const description = stripHtml(item.description);
+
   return (
     <div className="max-w-lg mx-auto">
 
-      {/* ── Hero — the cover has the matching viewTransitionName ── */}
+      {/* ── Hero ── */}
       <div className="relative w-full h-72 overflow-hidden bg-stone-900">
         {coverUrl && (
           <div className="absolute inset-0 scale-110 animate-fade-in" style={{ animationDelay: "120ms" }}>
@@ -104,7 +119,7 @@ export default function BookPage() {
           style={{ animationDelay: "120ms" }}
         />
 
-        {/* Cover — viewTransitionName on the actual book shape so the morph is precise */}
+        {/* Cover */}
         <div className="absolute inset-0 flex items-center justify-center py-6">
           {coverUrl ? (
             <div
@@ -120,7 +135,7 @@ export default function BookPage() {
             >
               <Image
                 src={coverUrl}
-                alt={book.title}
+                alt={item.title}
                 fill
                 className="object-cover"
                 sizes="33vw"
@@ -140,7 +155,7 @@ export default function BookPage() {
           )}
         </div>
 
-        {/* Back button — fades in just before the cover lands */}
+        {/* Back button */}
         <button
           onClick={() => router.back()}
           className="absolute top-12 left-4 w-9 h-9 bg-black/30 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/10 active:scale-90 transition-transform animate-fade-in"
@@ -152,56 +167,51 @@ export default function BookPage() {
         </button>
       </div>
 
-      {/* ── Content — rises as one block after cover lands (900ms) + 500ms pause ── */}
+      {/* ── Content ── */}
       <div
         className="px-4 pt-5 pb-10 animate-content-rise"
         style={{ animationDelay: "1400ms" }}
       >
-        <h1 className="text-xl font-bold text-stone-900 leading-snug">{book.title}</h1>
-        {book.author && (
-          <p className="mt-1 text-[15px] flex flex-wrap gap-x-1">
-            {book.author.split(", ").map((a, i, arr) => (
-              <span key={a} className="flex items-center gap-x-1">
-                <button
-                  onClick={() => router.push(`/author/${encodeURIComponent(a.trim())}`)}
-                  className="text-stone-500 underline underline-offset-2 decoration-stone-300 active:text-amber-700 transition-colors"
-                >
-                  {a.trim()}
-                </button>
-                {i < arr.length - 1 && <span className="text-stone-400">,</span>}
-              </span>
-            ))}
-          </p>
+        <h1 className="text-xl font-bold text-stone-900 leading-snug">{item.title}</h1>
+        {item.author && (
+          <p className="mt-1 text-[15px] text-stone-500">{item.author}</p>
         )}
-        {book.published_year && (
-          <p className="text-stone-400 text-sm mt-0.5">{book.published_year}</p>
+        {item.published_year && (
+          <p className="text-stone-400 text-sm mt-0.5">{item.published_year}</p>
         )}
 
-        <div className="mt-6 pt-5 border-t border-stone-100">
-          <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-3">
-            Ma note
-          </p>
-          <StarRating value={book.rating} onChange={updateRating} size="lg" />
+        {/* ── Actions ── */}
+        <div className="mt-6 pt-5 border-t border-stone-100 space-y-2.5">
+          <button
+            onClick={moveToLibrary}
+            disabled={moving || removing}
+            className="w-full bg-amber-700 text-white py-3.5 rounded-2xl font-bold disabled:opacity-50 active:scale-[0.98] transition-transform"
+            style={{ boxShadow: "0 4px 16px rgba(180,83,9,0.25)" }}
+          >
+            {moving ? "Enregistrement…" : "J'ai acheté ce livre"}
+          </button>
         </div>
 
-        {book.description && (
+        {/* ── Description ── */}
+        {description && (
           <div className="mt-5 pt-5 border-t border-stone-100">
             <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-3">
               Résumé
             </p>
             <p className="text-sm text-stone-600 leading-relaxed whitespace-pre-wrap">
-              {stripHtml(book.description)}
+              {description}
             </p>
           </div>
         )}
 
+        {/* ── Delete ── */}
         <div className="mt-8">
           {!showDeleteConfirm ? (
             <button
               onClick={() => setShowDeleteConfirm(true)}
               className="w-full border border-stone-200 text-stone-400 py-3.5 rounded-2xl font-medium active:scale-[0.98] transition-transform text-sm"
             >
-              Supprimer de la bibliothèque
+              Supprimer de la wishlist
             </button>
           ) : (
             <div className="border border-red-100 rounded-2xl p-4 bg-red-50 space-y-3 animate-scale-in">
@@ -216,8 +226,9 @@ export default function BookPage() {
                   Annuler
                 </button>
                 <button
-                  onClick={deleteBook}
-                  className="flex-1 py-2.5 bg-red-600 text-white rounded-xl text-sm font-bold"
+                  onClick={remove}
+                  disabled={removing}
+                  className="flex-1 py-2.5 bg-red-600 text-white rounded-xl text-sm font-bold disabled:opacity-50"
                 >
                   Supprimer
                 </button>

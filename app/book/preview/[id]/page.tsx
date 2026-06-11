@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { useTransitionRouter } from "next-view-transitions";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
-import { enhanceCoverUrl } from "@/lib/utils";
+import { enhanceCoverUrl, stripHtml } from "@/lib/utils";
 import type { BookInfo } from "@/lib/types";
 
 interface VolumeInfo {
@@ -346,7 +346,7 @@ export default function BookPreviewPage() {
               Résumé
             </p>
             <p className="text-sm text-stone-600 leading-relaxed whitespace-pre-wrap">
-              {v.description}
+              {stripHtml(v.description)}
             </p>
           </div>
         )}
