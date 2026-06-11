@@ -1,0 +1,30 @@
+import { NextResponse } from "next/server";
+
+export const runtime = "edge";
+
+export async function GET(req: Request) {
+  const auth = req.headers.get("authorization");
+  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseKey) {
+    return NextResponse.json({ error: "Missing env vars" }, { status: 500 });
+  }
+
+  const res = await fetch(`${supabaseUrl}/rest/v1/books?select=id&limit=1`, {
+    headers: {
+      apikey: supabaseKey,
+      Authorization: `Bearer ${supabaseKey}`,
+    },
+  });
+
+  if (!res.ok) {
+    return NextResponse.json({ error: "Supabase unreachable", status: res.status }, { status: 502 });
+  }
+
+  return NextResponse.json({ ok: true, pingedAt: new Date().toISOString() });
+}
