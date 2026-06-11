@@ -28,8 +28,14 @@ export default function BarcodeScanner({ onScan, onError }: Props) {
       const { BrowserMultiFormatReader } = await import("@zxing/browser");
       const reader = new BrowserMultiFormatReader();
 
-      const controls = await reader.decodeFromVideoDevice(
-        undefined,
+      const controls = await reader.decodeFromConstraints(
+        {
+          video: {
+            facingMode: { ideal: "environment" },
+            // Request continuous autofocus for close-up barcode scanning
+            advanced: [{ focusMode: "continuous" } as MediaTrackConstraintSet],
+          },
+        },
         videoRef.current,
         (result) => {
           if (result) {
