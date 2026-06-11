@@ -10,7 +10,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ping Supabase via API route
-        run: |
-          curl -f \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            https://bookshelf-ten-sigma.vercel.app/api/cron/ping
+        run: curl -f https://bookshelf-ten-sigma.vercel.app/api/cron/ping
