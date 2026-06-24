@@ -10,16 +10,33 @@ export async function GET() {
     return NextResponse.json({ error: "Missing env vars" }, { status: 500 });
   }
 
-  const res = await fetch(`${supabaseUrl}/rest/v1/books?select=id&limit=1`, {
-    headers: {
-      apikey: supabaseKey,
-      Authorization: `Bearer ${supabaseKey}`,
-    },
-  });
+  // Upsert (not a plain SELECT) — writes are more reliably counted as
+  // project activity by Supabase's free-tier auto-pause heuristic.
+  try {
+    const res = await fetch(`${supabaseUrl}/rest/v1/heartbeat`, {
+      method: "POST",
+      headers: {
+        apikey: supabaseKey,
+        Authorization: `Bearer ${supabaseKey}`,
+        "Content-Type": "application/json",
+        Prefer: "resolution=merge-duplicates",
+      },
+      body: JSON.stringify({ id: 1, pinged_at: new Date().toISOString() }),
+    });
 
-  if (!res.ok) {
-    return NextResponse.json({ error: "Supabase unreachable", status: res.status }, { status: 502 });
+    if (!res.ok) {
+      const detail = await res.text();
+      return NextResponse.json(
+        { error: "Supabase unreachable", status: res.status, detail },
+        { status: 502 }
+      );
+    }
+
+    return NextResponse.json({ ok: true, pingedAt: new Date().toISOString() });
+  } catch (err) {
+    return NextResponse.json(
+      { error: "Fetch failed", detail: err instanceof Error ? err.message : String(err) },
+      { status: 502 }
+    );
   }
-
-  return NextResponse.json({ ok: true, pingedAt: new Date().toISOString() });
 }
